@@ -592,3 +592,72 @@ Reviewed for security, validation, and data persistence:
 - Coursework-level limitations stand as reviewed in the contact-form phase:
   non-atomic read-modify-write on the JSON file, no spam/rate limiting,
   simple email regex, and local JSON not being durable on serverless hosts.
+
+---
+
+## Prompt 5 — Prepare and Publish to GitHub (November 8, 2026)
+
+> The final code review is complete. Please prepare and publish my Next.js
+> portfolio assignment to GitHub.
+>
+> 1. In `src/data/projects.js`, update the Ascend NorCal Sponsor Dashboard
+>    technology tags to accurately include Power BI and DAX, where
+>    appropriate. Do not invent additional project metrics or achievements.
+> 2. Verify that my name "Lena Wu" appears correctly in the navbar, footer,
+>    and site metadata.
+> 3. Confirm that `data/contact-submissions.json`, `.env` files,
+>    `node_modules`, and `.next` are excluded from Git.
+> 4. Run `git status` and review all files before committing. Do not include
+>    private contact submissions or unnecessary generated files.
+> 5. Create a new public GitHub repository named `portfolio-website` under my
+>    GitHub account `LenaWuBA`. Do not modify my existing
+>    `product-inventory-cli` repository.
+> 6. Commit the project source code, README, and `PROMPT_LOG.md` with a
+>    descriptive commit message.
+> 7. Push the commit to the new GitHub repository.
+> 8. Verify that the push succeeded and provide the exact repository URL and
+>    commit hash.
+> 9. If GitHub authentication or repository creation requires my action, stop
+>    and explain exactly what I need to do. Do not claim the push succeeded
+>    unless it is verified.
+> 10. Update the README with setup instructions, route descriptions, the
+>     Server Action contact form flow, and documented limitations.
+>
+> Do not delete my local JSON test submission or modify my previous Python
+> CLI project.
+
+### Why this prompt was effective
+
+- **Release checklist:** Technology fix, identity verification, ignore-rule
+  audit, staged-file review, repo creation, commit, push, and verification —
+  an ordered, auditable publish pipeline.
+- **Privacy-first:** Explicitly barred private submissions and generated files
+  from the commit and asked for the exclusion to be confirmed.
+- **Honest verification clause:** Required the exact URL and commit hash and
+  forbade unverified success claims; also told the assistant to stop and ask
+  when account actions were needed (which happened — the repo was created via
+  github.com because the GitHub CLI was not installed).
+- **Scope guards:** Existing repositories and local test data protected.
+
+### Publication record
+
+- `src/data/projects.js` — Ascend dashboard `technologies` updated to
+  ["Power BI", "DAX", "Data Visualization"]; no metrics or achievements added.
+- Name verified in all four places (navbar brand, footer copyright, metadata
+  default title, title template).
+- `.gitignore` rules confirmed with `git check-ignore -v`:
+  `data/contact-submissions.json` and `data/` (line 40, `/data`), `.env`
+  (line 34, `.env*`), `node_modules` (line 4), `.next` (line 17).
+- README rewritten: setup instructions, route table, dynamic-route
+  explanation, Server Action contact form flow, and documented limitations.
+- Repository was not a git repo initially; initialized with
+  `git init -b main`. Repo-local identity set to Lena Wu
+  `<LenaWuBA@users.noreply.github.com>` (change if a different email is
+  preferred).
+- `git status` reviewed before committing: 28 files staged, all source,
+  config, or documentation; no `node_modules`, `.next`, or `data/` content.
+- The GitHub CLI was not installed, so per the prompt's instruction the
+  process stopped and the empty public repository was created by Lena at
+  github.com. Stored Git Credential Manager credentials (user `LenaWuBA`)
+  were then used for the push.
+- The local JSON test submission was preserved throughout.
