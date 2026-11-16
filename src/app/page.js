@@ -39,7 +39,7 @@ export default function Home() {
           <Link href="/projects" className={secondaryButton}>
             Projects
           </Link>
-          <Link href="/contact-me-server-form" className={secondaryButton}>
+          <Link href="/contact-me" className={secondaryButton}>
             Contact Me
           </Link>
         </div>

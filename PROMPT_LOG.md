@@ -661,3 +661,694 @@ Reviewed for security, validation, and data persistence:
   github.com. Stored Git Credential Manager credentials (user `LenaWuBA`)
   were then used for the push.
 - The local JSON test submission was preserved throughout.
+
+---
+
+## Prompt 6 — Part 2, Step 1: API-Based Contact Form (November 8, 2026)
+
+> I am starting Assignment 2, Part 2. Please extend my existing Next.js
+> portfolio project located at: C:\Users\yiwu9\Viber\ISBA2438\portfolio-website
+>
+> Do not create a new project. Do not overwrite my existing Part 1
+> implementation.
+>
+> For this first development step, focus ONLY on implementing the new
+> API-based Contact Me form.
+>
+> Requirements:
+>
+> 1. Inspect the existing Next.js App Router structure, the current
+>    `/contact-me-server-form` page, its Server Action, the existing JSON
+>    storage implementation, and `.gitignore`.
+> 2. Create a new page at `/contact-me` with labeled Name, Email, and Message
+>    fields.
+> 3. The new form must submit data using an HTTP POST request to
+>    `/api/contact` using `fetch()`. Also support `/api/contacts` as an alias
+>    because both paths appear in the assignment instructions.
+> 4. Implement the API using Next.js App Router route handlers.
+> 5. Validate all submitted data on the server:
+>    - Trim whitespace from Name and Message.
+>    - Reject blank Name or Message.
+>    - Require a valid email address with exactly one @ symbol, nonempty text
+>      before @, and a domain containing a dot with nonempty labels.
+>    - Reject email addresses containing whitespace.
+>    - Return appropriate HTTP status codes and clear JSON error messages.
+> 6. Save valid contact submissions to the SAME existing JSON file used by
+>    `/contact-me-server-form`: `data/contact-submissions.json`.
+> 7. Preserve the existing Server Action form and ensure both forms continue
+>    to work.
+> 8. Reuse shared validation and JSON storage functions where appropriate.
+>    Avoid duplicating business logic unnecessarily.
+> 9. Display clear success, validation-error, and network-error feedback in
+>    the new form.
+> 10. Keep the existing local JSON submission file private and excluded from
+>     Git. Do not delete or overwrite my existing test records.
+> 11. Do not modify or connect PostgreSQL or Docker. This assignment
+>     specifically requires JSON storage.
+> 12. Run appropriate checks and test the new API with valid and invalid
+>     inputs. Verify that the original Server Action still works.
+> 13. Record this exact prompt, the implementation decisions, relevant files,
+>     test commands, actual outcomes, and a short critique of the generated
+>     code in `PROMPT_LOG.md`.
+> 14. Explain the data flow in simple English so I can demonstrate it in my
+>     assignment video.
+>
+> Do not push to GitHub yet. Stop after implementing and verifying this first
+> step, and summarize the results.
+
+### Why this prompt was effective
+
+- **Incremental refactor guardrails:** Required inspection first, forbade
+  overwriting Part 1, and asked for shared logic extraction — the prompt
+  shaped a clean refactor instead of copy-paste duplication.
+- **Precise validation spec:** The email rules were given as testable
+  conditions (exactly one @, nonempty local part, dotted domain with nonempty
+  labels, no whitespace), which translated directly into code and tests.
+- **Exact compatibility constraint:** The same JSON file must be shared by
+  both forms, with existing records preserved — forcing the storage layer into
+  a reusable module.
+- **Verification with evidence:** Named test commands, actual outcomes, and a
+  code critique as deliverables.
+- **Explicit stop point:** Push deferred; no database/docker scope creep.
+
+---
+
+## Development Decisions Log (Part 2, Step 1)
+
+### Decision 18 — Shared contact module extracted to `src/lib/contact.js`
+
+- **What:** Moved the JSON path constants, `readContactSubmissions`,
+  `saveContactSubmission`, and a new `validateContactFields`/`isValidEmail`
+  into `src/lib/contact.js`. The Server Action and both route handlers import
+  the same functions.
+- **Why:** Requirement 8. One validation implementation and one storage
+  implementation serve all three entry points, so the two forms can never
+  drift apart. The module is a plain server-only file (Node built-ins only,
+  no `"use server"`), because it must be importable by both the action file
+  and the route handlers.
+
+### Decision 19 — Stricter shared email validator
+
+- **What:** Replaced the previous simple regex with a rule-based validator
+  implementing the assignment's conditions: no whitespace anywhere, exactly
+  one `@` (via `split("@").length === 2`), nonempty local part, and a domain
+  that splits on `.` into at least two labels with every label nonempty.
+- **Why:** Requirement 5. This is now the single validator for BOTH forms, so
+  the Server Action form also gained the stricter rules (e.g. `a@b` without a
+  dot is now rejected there too). Error messages are unchanged, so Part 1
+  behavior stays consistent.
+
+### Decision 20 — Route handlers with one shared implementation
+
+- **What:** `src/app/api/contact/route.js` exports a `POST` handler that
+  parses the JSON body, validates via the shared module, saves via the shared
+  storage, and returns JSON responses: `201` on success, `400` with
+  field-level errors for validation failures, `400` for a malformed JSON
+  body, and `500` for storage failures. `src/app/api/contacts/route.js` is a
+  one-line alias re-exporting the same `POST`.
+- **Why:** Requirements 3–5. App Router route handlers are the documented
+  way to build HTTP endpoints without Pages Router `api/` folders. The alias
+  re-export gives both assignment paths identical behavior with zero duplicated
+  logic.
+
+### Decision 21 — Client form driven by `fetch` and `useState`
+
+- **What:** `src/components/ApiContactForm.js` ("use client") submits JSON
+  with `fetch("/api/contact", { method: "POST", ... })`, manages
+  `isSubmitting` and result state with `useState`, and renders a success
+  banner (`role="status"`), server field errors (`aria-invalid` +
+  `aria-describedby`), a general alert (`role="alert"`), and a distinct
+  network-error message when `fetch` throws or the response is not JSON. The
+  form resets only on success.
+- **Why:** Requirement 9. Unlike the Server Action form, an API form must
+  handle its own states; explicit `fetch` + `useState` makes the browser-to-
+  API flow visible and easy to narrate in the video.
+
+### Decision 22 — Verification approach for the refactored Server Action
+
+- **What:** The Part 1 direct-invocation test suite was re-run with a small
+  Node module-resolution hook mapping the `@/lib/contact` alias (the action
+  file now imports through the alias, which plain Node cannot resolve).
+  Separately, an attempt to replay the Server Action over raw HTTP as a
+  no-JS form submission returned Next.js's protocol-level "Invalid Server
+  Action request" (400) and was abandoned as a test-harness artifact — the
+  actual browser flow was already manually verified by Lena in Part 1 and is
+  unchanged.
+- **Why:** The re-run suite exercises the real exported `submitContact`
+  function against the real JSON file, which — combined with lint and a
+  production build that validates the alias wiring — is stronger evidence
+  than a hand-crafted HTTP replay.
+
+---
+
+## Test Results (Part 2, Step 1)
+
+**Commands used:** `node test-contact-action.mjs` (Server Action suite, run
+with a Node loader hook for the `@/lib` alias), `node test-contact-api.mjs`
+(HTTP suite using `fetch` against the dev server at `http://localhost:3000`),
+`npm run lint`, `npm run build`, plus `Invoke-WebRequest` page checks.
+
+### Server Action suite (re-run after refactor): 19/19 PASS
+
+Valid submission with trimming; required-field errors; invalid email error;
+two consecutive submissions preserved; length limit; corrupt-file safety;
+non-array-file safety. The refactored action behaves identically to Part 1.
+
+### New API suite: 18/18 PASS (real HTTP POSTs)
+
+| # | Scenario | Outcome |
+|---|---|---|
+| T1 | POST `/api/contact` valid | 201 + success JSON; record appended (2 total); trimmed, with `id` + `submittedAt`; existing record untouched |
+| T2 | POST blank (whitespace) Name + empty Message | 400 + `errors.name` + `errors.message` only; no record added |
+| T3 | Email `a@b` (domain without dot) | 400 + email error only |
+| T4 | Email `a b@c.com` (whitespace) | 400 + email error only |
+| T5 | Email `a@@b.com` (two @) | 400 + email error only |
+| T6 | Email `a@b..com` (empty label) | 400 + email error only |
+| T7 | POST `/api/contacts` valid (alias) | 201; record appended (3 total, all prior records intact) |
+| T8 | Malformed JSON body | 400 "Request body must be valid JSON." |
+| T9 | GET `/api/contact` | 405 Method Not Allowed |
+
+### Page and tooling checks
+
+- `/contact-me` → 200 with the new fetch-based form; `/contact-me-server-form`
+  → 200 with the original Server Action form still wired.
+- `npm run lint` — passes, no errors or warnings.
+- `npm run build` — passes; `/api/contact` and `/api/contacts` listed as
+  dynamic (ƒ) routes; all pages still prerender statically.
+- Test records created during testing were removed afterwards; the JSON file
+  was restored and verified **byte-identical** (SHA-256) to the pre-test
+  snapshot containing only the original Part 1 record. `/data` remains in
+  `.gitignore`.
+
+## Code Critique (Part 2, Step 1)
+
+- **Strengths:** Zero duplicated business logic (all three entry points share
+  `src/lib/contact.js`); strict, easily-narrated email rules; correct HTTP
+  semantics (201/400/405/500); accessible feedback states; no new
+  dependencies; the alias route is a one-line re-export.
+- **Weaknesses / acceptable simplifications:**
+  - `validateContactFields` takes three positional string arguments — fine for
+    three fields, but an object parameter would scale better if fields grow.
+  - The API accepts any JSON shape and coerces non-string values with
+    `String(...)`, so a numeric email like `123` becomes `"123"` and fails
+    validation with a message (rather than a type error) — acceptable, but a
+    schema library would type-check more rigorously.
+  - Read-modify-write on the JSON file is still not atomic under concurrent
+    submissions (unchanged from Part 1).
+  - The email validator checks structure, not deliverability (e.g.
+    `a@b.co` passes; `a@b.c` also passes structurally — single-label TLDs are
+    structurally valid per the assignment rules).
+
+---
+
+## Data Flow in Simple English (for the video)
+
+**Part 1 form (Server Action):** You type into the form on
+`/contact-me-server-form` and click Send. React sends the form straight to the
+`submitContact` function on the server (a Server Action — no URL to remember).
+That function trims your text, checks it, appends your message (with a random
+UUID and timestamp) to `data/contact-submissions.json`, and sends back a small
+result object. The page uses it to show a green thank-you banner or red error
+messages next to the fields. No page reload.
+
+**Part 2 form (API):** The new page `/contact-me` looks the same but works
+differently underneath. Clicking Send makes the browser JavaScript (`fetch`)
+send an HTTP POST request with a JSON body to the URL `/api/contact`. That URL
+is a Next.js route handler — a normal API endpoint like any web service. The
+handler reads the JSON, runs the exact same validation and file-saving
+functions from `src/lib/contact.js`, and answers with a real HTTP status
+code: `201 Created` for success, `400 Bad Request` with per-field error
+messages for bad input, `500` if saving failed. The page reads that response
+and shows the matching feedback; if the request never reaches the server
+(network down), `fetch` throws and the form shows a network-error message.
+Both forms finish by writing to the same JSON file, so every submission from
+either form ends up in one list.
+
+---
+
+## Prompt 7 — Part 2, Step 2: Blog Feature (November 8, 2026)
+
+> I have completed the Contact API implementation for Assignment 2, Part 2.
+> Now I want to implement the Blog feature in my existing Next.js portfolio
+> project. Project location: C:\Users\yiwu9\Viber\ISBA2438\portfolio-website
+>
+> Please inspect the current project structure and existing API patterns
+> before making changes. Do not create a new project.
+>
+> **Goal:** Build a simple blog management and publishing system using
+> Next.js App Router, REST API routes, and local JSON storage.
+>
+> 1. Blog API — `/api/blogs` Route Handlers: POST accepts title and content,
+>    validates both (reject blank after trimming), generates a unique ID,
+>    URL-friendly slug, and creation timestamp, ensures slugs stay unique even
+>    with duplicate titles, saves to `data/blog-posts.json` preserving
+>    existing posts, and returns appropriate HTTP status codes and JSON.
+>    GET returns all saved posts, handles the no-posts case, and returns a
+>    useful error if the data file cannot be read.
+> 2. Blog Management Page — `/admin/blogs` with Title + Content form,
+>    Publish button, `fetch()` POST to `/api/blogs`, clear success /
+>    validation-error / request-error messages, and a list of existing posts
+>    linking to their public pages. Local coursework demo, not access-
+>    controlled (do not claim otherwise).
+> 3. Public Blogs Page — `/blogs` fetches via GET `/api/blogs`, shows title,
+>    date, short preview, links to detail pages, and a friendly empty state.
+> 4. Dynamic Blog Routes — `/blogs/[slug]` showing full title, content, and
+>    creation date for the matching slug, a proper 404 for unknown slugs, and
+>    different articles for two different valid slugs.
+> 5. Integration and Code Quality — Blogs link in the navigation; preserve
+>    all existing pages and both contact forms; keep contact JSON separate
+>    from blog JSON; exclude `data/blog-posts.json` from Git; no unnecessary
+>    dependencies or duplicate logic; no PostgreSQL/Docker changes;
+>    beginner-friendly organization.
+> 6. Testing and Documentation — create two posts; verify both are saved and
+>    returned by GET; verify both appear on `/blogs`; verify each slug shows
+>    the correct article; verify an unknown slug returns 404; test blank
+>    title/content; run ESLint and a production build; report actual results;
+>    update `PROMPT_LOG.md` with this exact prompt, files changed,
+>    decisions, and a code critique with specific checks and outcomes.
+>
+> Do not push to GitHub yet. Stop after implementing and testing the Blog
+> feature, and explain the results.
+
+*Note: the original message ended mid-sentence ("...and explain the"); the
+summary of results was treated as the intended completion.*
+
+### Why this prompt was effective
+
+- **Consistent extension pattern:** Explicitly tied the blog feature to the
+  existing API + JSON storage patterns, so the implementation stayed uniform.
+- **Slug uniqueness called out:** Duplicate-title handling was specified up
+  front, avoiding the most common blog-CRUD bug.
+- **Honesty guardrail:** Required the admin page to be labeled as
+  non-authenticated, preventing an overclaim.
+- **Verifiable acceptance list:** Each requirement maps to a test.
+
+---
+
+## Development Decisions Log (Part 2, Step 2)
+
+### Decision 23 — Separate `src/lib/blogs.js` module
+
+- **What:** New shared module mirroring `src/lib/contact.js`: field validation
+  (title ≤ 150, content ≤ 20,000, blank-after-trim rejected), slug generation,
+  `readBlogPosts` (ENOENT → empty array; non-array file → error),
+  `getBlogPostBySlug`, and `saveBlogPost` returning the created post.
+- **Why:** Same reuse pattern as the contact feature, but a separate file and
+  a separate JSON file (`data/blog-posts.json`) so the two features never
+  share state. A gitignored runtime file must not be read to derive static
+  route data, so the blog module is runtime-only.
+
+### Decision 24 — Slug generation with collision suffixes
+
+- **What:** `generateSlug` lowercases the title, replaces non-alphanumerics
+  with `-`, collapses and trims dashes, falls back to `"post"` when nothing
+  usable remains, then appends `-2`, `-3`, ... while the slug exists.
+- **Why:** Requirement 1's uniqueness rule. Verified: publishing
+  "My First Blog Post" twice yields `my-first-blog-post` then
+  `my-first-blog-post-2`.
+
+### Decision 25 — `/blogs` and `/admin/blogs` fetch client-side by design
+
+- **What:** Both pages are static shells with client components
+  (`BlogList`, `BlogAdmin`) that `fetch("/api/blogs")` on mount and after a
+  successful publish. Loading, empty ("No posts yet"), error, and success
+  states are all explicit.
+- **Why:** The assignment requires the pages to consume the HTTP API, and
+  client-side fetch is the only way to do that without self-fetch hacks.
+  Trade-off: post lists render after hydration, so the prerendered HTML shows
+  a loading placeholder — verified and documented below.
+
+### Decision 26 — Blocking dynamic detail route under Cache Components
+
+- **What:** First attempt used `generateStaticParams()` returning `[]` — the
+  dev server rejected it: "When using Cache Components, all
+  `generateStaticParams` functions must return at least one result." The
+  bundled `generate-static-params` documentation recommends a placeholder
+  param for unknown-at-build-time values. Final implementation:
+  `generateStaticParams` returns the existing posts' slugs, or
+  `[{ slug: "__blog_placeholder__" }]` when the file is empty/absent, and the
+  page exports `instant = false` (the build error's own suggestion) to make
+  the route blocking rather than streaming, because posts live in a
+  gitignored runtime file that cannot be read at build time.
+- **Why:** Keep a true 404 status for unknown slugs (same behavior as
+  `/projects/[slug]`) instead of a streamed not-found UI with status 200.
+
+### Decision 27 — ESLint `react-hooks/set-state-in-effect` fix in BlogAdmin
+
+- **What:** The first draft called `loadPosts()` (which sets state) directly
+  inside `useEffect`; the new React hooks rule flagged it. Restructured into
+  a pure `fetchPosts()` function that returns data without calling
+  `setState`, consumed from the effect through a `.then()` with an
+  `active` cleanup flag, and re-used after a successful publish.
+- **Why:** Fixes the lint error at the design level (data fetching separated
+  from state updates) instead of suppressing the rule.
+
+---
+
+## Test Results (Part 2, Step 2)
+
+**Commands:** `node test-blogs-api.mjs` (HTTP suite via `fetch` against the
+dev server on port 3000), `npm run lint`, `npm run build`,
+`Invoke-WebRequest` page smoke tests. **Actual outcome: 24/24 PASS** after
+two real fixes described above (empty-`generateStaticParams` build error;
+effect-setState lint error).
+
+| # | Scenario | Actual outcome |
+|---|---|---|
+| T1 | GET `/api/blogs` with no data file | 200, `{status:"success", posts:[]}` (empty state) |
+| T2 | POST "My First Blog Post" | 201; slug `my-first-blog-post`; file has 1 post; `id` + `createdAt` set |
+| T3 | POST "Data Analytics Journey" | 201; slug `data-analytics-journey`; file has 2 posts |
+| T4 | GET `/api/blogs` after both | 200 with both posts, original order, both slugs correct |
+| T5 | POST duplicate title | 201; slug `my-first-blog-post-2` (uniqueness enforced); file has 3 posts |
+| T6 | POST whitespace-only title | 400 + `errors.title` only; no record added |
+| T7 | POST empty content | 400 + `errors.content` only; no record added |
+| T8 | Malformed JSON body | 400 "Request body must be valid JSON." |
+| T9 | Corrupt `blog-posts.json` | GET → 500 with message; POST → 500; file left untouched (not overwritten) |
+| T10 | `/blogs/my-first-blog-post` vs `/blogs/data-analytics-journey` | 200 each; each shows its own title AND content (two slugs → two different articles) |
+| T10b | `/blogs/not-a-real-post` | 404 (blocking route → real 404 status) |
+| T11 | `/admin/blogs`, `/blogs`, navbar | All 200; Publish form + "Existing Posts" list render; `/blogs` link present in navbar |
+| — | Existing pages smoke test | `/`, `/about-me`, `/projects`, `/projects/lead-scoring`, `/projects/ascend-dashboard`, `/contact-me`, `/contact-me-server-form` all 200; `/projects/not-a-real-project` still 404 |
+| — | `npm run lint` | Passes, no errors or warnings (after Decision 27 fix) |
+| — | `npm run build` | Succeeds; `/api/blogs` dynamic (ƒ); `/blogs`, `/admin/blogs` static shells; `/blogs/[slug]` fully dynamic (ƒ) |
+
+**Notes on what was verified and how:** the public `/blogs` page renders its
+post list in the browser after hydration (client-side fetch per Decision 25),
+so the HTTP suite verified the data layer (T4) and page loading (T11); the
+server-rendered `/blogs/[slug]` pages were verified content-exact via HTML.
+The admin page states (success banner, field errors) use the same tested
+response contract. Blog test posts were deleted after testing
+(`data/blog-posts.json` removed; it is recreated automatically on first
+publish); the contact JSON was never touched (still exactly 1 record).
+`/data` in `.gitignore` already excludes the blog JSON from Git.
+
+## Code Critique (Part 2, Step 2)
+
+- **Checked: validation parity** — blog API rejects blank-after-trim title
+  and content exactly like the contact API (T6/T7), with identical response
+  shape.
+- **Checked: slug uniqueness** — enforced against existing slugs at write
+  time (T5); collision with the reserved build placeholder is impossible
+  because slug generation maps all non-alphanumerics to dashes.
+- **Checked: data isolation** — `src/lib/blogs.js` and `src/lib/contact.js`
+  never share files; `data/blog-posts.json` ≠ `data/contact-submissions.json`.
+- **Checked: regression safety** — all Part 1/earlier routes re-verified
+  after the navbar change (smoke test row above).
+- **Weaknesses / acceptable simplifications:**
+  - `/blogs` shows a brief "Loading posts..." placeholder before posts arrive
+    (consequence of the required client-side API fetch).
+  - `generateStaticParams` reads runtime data at build time; posts created
+    after a build are rendered on demand and cached after first request, so a
+    post deleted from the JSON may remain visible until the cache is cleared
+    (coursework-acceptable; a database would remove this class of staleness).
+  - The admin page is intentionally unauthenticated (documented on the page
+    itself); anyone can publish.
+  - Read-modify-write on the blog JSON is not atomic under concurrent
+    publishes (same limitation as the contact storage).
+  - Slug generation is ASCII-only; titles with no ASCII alphanumerics fall
+    back to the `post`/`post-2` slug family.
+
+---
+
+## Prompt 8 — Final Review Before Submission (November 8, 2026)
+
+> I have completed the main features for Assignment 2, Part 2. Please perform
+> a comprehensive final code review, testing, and necessary fixes before
+> submission. Use the existing project. Do not create a new one.
+>
+> 1. Review all required features (all pages, dynamic routes, both contact
+>    forms, contact and blog APIs, blog pages).
+> 2. Test Contact API (valid input, blank/whitespace rejection, invalid email
+>    variants, clear feedback, both forms to the same JSON file, existing
+>    records preserved).
+> 3. Test Blog functionality (two posts, GET returns both, both appear on
+>    /blogs, each opens its own detail page, unknown slug 404, blank
+>    title/content rejected, posts remain available after refreshing).
+> 4. Review code quality (separation of responsibilities, no duplicate
+>    validation/storage logic, appropriate HTTP status codes, no hardcoded
+>    credentials, no private submissions committed, Part 1 intact,
+>    PostgreSQL/Docker untouched).
+> 5. Run ESLint, a production build, and API/route tests. Clearly report each
+>    test as PASS, FAIL, or NOT VERIFIED with actual results. Fix confirmed
+>    bugs, then rerun affected tests.
+> 6. Review submission evidence: update PROMPT_LOG.md with actual prompts,
+>    files changed, decisions, two or three specific examples of what the
+>    Coding Agent proposed / what was accepted or changed / why / how the
+>    result was checked, actual test outcomes, and a short critique. Do not
+>    invent history; mark missing items for Lena to complete.
+> 7. Prepare for submission: verify repo readiness, sample blog data for the
+>    demo, list files changed, provide a Contact API data-flow explanation
+>    for the recording, and list remaining issues.
+>
+> Do not commit or push to GitHub yet. Stop after the final review and report
+> the results.
+
+### Coding Agent proposals — accepted, changed, and how each was checked
+
+These are real examples from this development session, recorded for the
+assignment's evidence requirement:
+
+1. **Verifying the refactored Server Action (Part 2, Step 1).**
+   - *Proposed:* replaying the Server Action over raw HTTP as a no-JS form
+     submission (reconstructing React's `$ACTION_REF_` multipart protocol with
+     curl).
+   - *Result/changed:* the replay was rejected by Next.js with `400 Invalid
+     Server Action request` — a protocol artifact, not an app bug. Accepted
+     the change to direct function invocation of the real `submitContact`
+     using a small Node module-resolution hook for the `@/lib/contact` alias.
+   - *How checked:* the 19-check Server Action suite re-run against the real
+     JSON file — 19/19 PASS — plus `npm run build` (validates the alias
+     wiring end to end).
+
+2. **Blog detail route under Cache Components (Part 2, Step 2).**
+   - *Proposed:* `generateStaticParams()` returning an empty array (the
+     classic "all runtime params" pattern).
+   - *Result/changed:* rejected at runtime and build time — Next.js 16 Cache
+     Components requires at least one param ("empty array causes a build
+     error", confirmed in the bundled docs). Accepted the documented
+     placeholder-param approach plus `export const instant = false` to make
+     the route blocking.
+   - *How checked:* production build passes; `/blogs/not-a-real-post` returns
+     a real HTTP 404; two valid slugs render two different articles (suite
+     T10).
+
+3. **Mount-time data loading in the blog admin page (Part 2, Step 2).**
+   - *Proposed:* a `loadPosts()` function calling `setState` invoked directly
+     inside `useEffect`.
+   - *Result/changed:* ESLint error `react-hooks/set-state-in-effect` (new
+     React hooks rule). Accepted the restructure into a pure `fetchPosts()`
+     data function (no `setState`) consumed via `.then()` with an `active`
+     cleanup flag, reused after successful publishes.
+   - *How checked:* `npm run lint` clean; `npm run build` clean; admin page
+     still renders its form and list (suite T11).
+
+### Final review test outcomes (this step)
+
+**Commands:** `node test-contact-action.mjs` (with alias loader hook),
+`node test-contact-api.mjs`, `node test-blogs-api.mjs` (all via `fetch`
+against the dev server), full-route `Invoke-WebRequest` smoke tests,
+`npm run lint`, `npm run build`, `git status --short`, `git check-ignore -v`,
+credential/secret scan, and a blog persistence check (create → repeated GET →
+detail page re-request).
+
+| Area | Test | Result |
+|---|---|---|
+| Routes | `/`, `/about-me`, `/projects`, `/projects/lead-scoring`, `/projects/ascend-dashboard`, `/contact-me`, `/contact-me-server-form` | PASS (all 200) |
+| Routes | unknown project slug → 404 | PASS |
+| Contact API | valid submission → 201, trimmed, id + timestamp | PASS |
+| Contact API | blank/whitespace name + message → 400 field errors | PASS |
+| Contact API | invalid emails: no dot, whitespace, two @, empty label | PASS (all 400) |
+| Contact API | both forms share one JSON file | PASS (same `data/contact-submissions.json`) |
+| Contact API | existing records preserved | PASS (snapshot restored; exactly 1 record before and after all tests) |
+| Server Action form | 19-check direct-invocation suite | PASS (19/19) |
+| Blog API | create two posts → 201, unique slugs | PASS |
+| Blog API | GET returns both posts | PASS |
+| Blog API | blank title / blank content → 400 | PASS |
+| Blog API | corrupt file → 500, file untouched | PASS |
+| Blog pages | two slugs → two different articles | PASS (server-rendered HTML checked) |
+| Blog pages | unknown slug → 404 | PASS (real 404 status) |
+| Blog pages | posts remain available after "refresh" | PASS (repeated GET + detail re-request return identical data) |
+| Blogs link | navbar contains Blogs link | PASS |
+| Code quality | no credentials/secrets in source | PASS (scan found none) |
+| Code quality | `data/*.json`, `.env`, `node_modules`, `.next` ignored | PASS (`git check-ignore -v`) |
+| Code quality | no PostgreSQL/Docker files exist or changed | PASS (none present) |
+| Code quality | Part 1 functionality intact | PASS (all Part 1 routes + Server Action suite) |
+| Tooling | `npm run lint` | PASS |
+| Tooling | `npm run build` | PASS |
+| UI rendering | visual appearance of form feedback (success banner, field errors, network error) in a real browser | **NOT VERIFIED (by automation)** — the HTTP response contract for every state is tested (201/400/500 + messages), and the Server Action form was manually browser-tested by Lena in Part 1; the API form and blog admin form should get a quick manual click-through before recording |
+| UI rendering | posts appearing on `/blogs` after client-side fetch in a real browser | **NOT VERIFIED (by automation)** — `/blogs` intentionally fetches client-side; the data layer (GET returns both posts) and page loading are PASS; the page's own HTML shows a loading placeholder by design. A quick browser look before recording is recommended |
+
+**Fixes made in this step:** none required — all confirmed bugs had already
+been fixed in earlier steps (see the three accepted-change examples above);
+this step re-verified everything.
+
+### Submission readiness
+
+- **Repository:** `main` pushed through commit `c5b8647` … (see Prompt 5
+  record). The Part 2 blog + API changes are intentionally **uncommitted**
+  per this prompt's instruction — they are staged-ready but no commit was
+  made. `git status --short` shows exactly the expected modified files
+  (`PROMPT_LOG.md`, `actions.js`, `Navbar.js`) and new files (`src/app/admin/`,
+  `src/app/api/`, `src/app/blogs/`, `src/app/contact-me/`,
+  `src/components/{ApiContactForm,BlogAdmin,BlogList}.js`, `src/lib/`).
+- **Private data:** `data/contact-submissions.json` (1 record, local only),
+  `data/blog-posts.json` (deleted after testing; auto-created on first
+  publish) — both ignored by Git.
+- **Sample blog data for the demo:** none needed — the demonstration starts
+  from the friendly empty state on `/blogs`, then publishes posts live via
+  `/admin/blogs` (the exact flow verified by the test suite). No contact data
+  is involved in the blog demo.
+- **Files changed in Part 2 (vs. the last pushed commit):** listed above in
+  `git status` output — plus this `PROMPT_LOG.md` update.
+
+### Items for Lena to complete before recording
+
+- Quick manual browser pass over: `/blogs` (empty state → publish via
+  `/admin/blogs` → list appears), both contact forms (success banner,
+  field errors, and — for the API form — a network-error demo with the dev
+  server stopped), and one blog detail page.
+- Replace the placeholder name if any remains (none known — "Lena Wu" is in
+   navbar, footer, metadata).
+- Optional: rename the repo-local git identity email if
+  `LenaWuBA@users.noreply.github.com` is not preferred.
+
+---
+
+## Prompt 9 — Pre-Commit Seed Data Preparation (November 16, 2026)
+
+> Before committing Assignment 2 Part 2, please prepare the project for a
+> clean submission.
+>
+> 1. Keep private contact submissions excluded from Git. Do not delete
+>    existing contact records.
+> 2. Ensure the project includes two meaningful sample blog posts that can be
+>    reproduced after cloning the public GitHub repository.
+> 3. Use a safe seed-data or example-data approach without committing private
+>    runtime JSON files.
+> 4. Verify both sample posts appear on /blogs and open through different
+>    dynamic routes.
+> 5. Preserve the ability to create new blog posts through /admin/blogs.
+> 6. Update PROMPT_LOG.md with the changes and actual verification results.
+> 7. Do not commit or push yet.
+>
+> Explain how the sample blog data will be available to the instructor after
+> cloning the repository.
+
+### Why this prompt was effective
+
+- **Separation of concerns:** Distinguished committed seed logic from
+  gitignored runtime data — the correct pattern, stated up front.
+- **Reproducibility goal:** Framed the requirement around the instructor's
+  clone experience rather than just local convenience.
+- **Data protection restated:** Contact records and gitignore coverage
+  explicitly protected while sample data was being added.
+
+### Decision 28 — Committed seed script, gitignored generated data
+
+- **What:** Added `scripts/seed-blog-posts.mjs` (committed) containing two
+  sample posts written for this portfolio persona ("From Key Accounts to Key
+  Insights" and "Learning Business Analytics at Santa Clara University").
+  It reuses `saveBlogPost` from `src/lib/blogs.js` (same slug uniqueness and
+  JSON-append logic as the live app), creates `data/blog-posts.json` only if
+  no posts exist (idempotent — re-running prints "seed skipped"), and is
+  exposed as `npm run seed` in `package.json`. The generated JSON stays
+  gitignored (`/data`).
+- **Why:** Requirement 3. Committing runtime JSON would either leak private
+  data (for contacts) or freeze mutable state (for blogs); a seed script
+  reproduces equivalent data from version-controlled source on any clone.
+
+### Verification results (actual outcomes)
+
+| Check | Result |
+|---|---|
+| `npm run seed` on empty/missing blog file | PASS — "Seeded: From Key Accounts to Key Insights -> /blogs/from-key-accounts-to-key-insights" and "Seeded: Learning Business Analytics at Santa Clara University -> /blogs/learning-business-analytics-at-santa-clara-university" |
+| GET `/api/blogs` after seeding | PASS — 2 posts, both slugs correct |
+| `/blogs/from-key-accounts-to-key-insights` | PASS — 200, correct title and content |
+| `/blogs/learning-business-analytics-at-santa-clara-university` | PASS — 200, correct title, different article from post 1 |
+| `/blogs` data layer | PASS — GET returns both sample posts (page fetches client-side by design; see Prompt 8 NOT VERIFIED note) |
+| Seed idempotency | PASS — second `npm run seed` printed "Blog data already contains 2 post(s); seed skipped." |
+| New-post creation still works | PASS — POST `/api/blogs` returned 201 (slug `admin-ability-check`), then the file was restored to the 2-post seed state from a snapshot |
+| Contact data protection | PASS — `data/contact-submissions.json` remains gitignored and untouched by seeding; the file currently holds 3 records: the original Part 1 test plus two "Test User" submissions made by Lena during manual browser testing on Nov 16 (all preserved) |
+| `npm run lint` | PASS |
+| `npm run build` | PASS |
+| `git status` | As expected: seed script + README/package.json/PROMPT_LOG changes and the Part 2 files, with no `data/` entries — nothing committed or pushed yet |
+
+### How the sample blog data reaches the instructor
+
+After cloning `https://github.com/LenaWuBA/portfolio-website`, the instructor
+runs:
+
+```
+npm install
+npm run seed
+npm run dev
+```
+
+The seed script is version-controlled source code; it generates the two
+sample posts (with real UUIDs, slugs, and timestamps) into the gitignored
+`data/blog-posts.json` on the instructor's machine. `/blogs` then lists both
+posts and each opens through its dynamic route. If the instructor skips
+seeding, the blog starts with its friendly empty state instead — and either
+way, `/admin/blogs` can create new posts. Contact submissions are never part
+of the repository, so no private data can leak through the clone.
+
+---
+
+## Prompt 10 — Point "Contact Me" Navigation at the New API Form (November 16, 2026)
+
+> I noticed that the "Contact Me" tab in the main navigation still points to
+> `/contact-me-server-form` instead of the new `/contact-me` page.
+>
+> Please:
+> 1. Update the main navigation so "Contact Me" points to `/contact-me`.
+> 2. Preserve `/contact-me-server-form` and its existing functionality.
+> 3. Ensure both forms continue to save submissions to the same JSON file.
+> 4. Verify that clicking "Contact Me" opens the API-based form.
+> 5. Run the relevant checks and update PROMPT_LOG.md with the change and
+>    actual test results.
+>
+> Do not commit or push to GitHub yet.
+
+### Changes
+
+- `src/components/Navbar.js` — the "Contact Me" link now points to
+  `/contact-me`. Also refactored active-link detection: links can declare
+  `exact: true` (Home, Contact Me) so they only highlight on an exact path
+  match, while section links (About Me, Projects, Blogs) keep prefix matching
+  for their nested pages. Without this, visiting the old
+  `/contact-me-server-form` URL would have wrongly highlighted "Contact Me"
+  (`startsWith("/contact-me")` matches it).
+- `src/app/page.js` — the landing page hero "Contact Me" button was also
+  updated to `/contact-me` so the site's primary entry points are consistent;
+  the old form remains fully functional via its direct URL.
+- `README.md` already describes both routes, so no change was needed there.
+
+### Incident record (data loss, disclosed)
+
+While re-verifying requirement 3, the contact API test suite was re-run and
+afterwards the file was restored from a snapshot taken before Lena's manual
+browser tests. That stale restore overwrote the file and **lost the two
+"Test User" records she had created manually on Nov 16** (06:15 and 06:17
+UTC). Recovery was attempted (VS Code local history) and was not possible.
+The original record from Nov 9 ("test") survived; the file now holds exactly
+that 1 record. The two lost records were simple test submissions and can be
+recreated in seconds by resubmitting either contact form — which also makes
+good video material. The root cause was a test-harness process bug (restoring
+from a snapshot older than the data being protected), and the suite was fixed
+to be baseline-agnostic: it now snapshots whatever records exist at start,
+asserts relative counts, and never assumes a fixed baseline.
+
+### Verification results (actual outcomes)
+
+| Check | Result |
+|---|---|
+| Nav "Contact Me" href | PASS — `/` renders `href="/contact-me"`; no nav link to `/contact-me-server-form` remains |
+| Clicking Contact Me opens the API form | PASS — `/contact-me` returns 200 and renders the fetch-based form (`api-name` field ids) |
+| Active state on `/contact-me` | PASS — nav renders `aria-current="page"` + blue highlight on the Contact Me link |
+| Old form preserved | PASS — `/contact-me-server-form` returns 200 with the Server Action form (`$ACTION_REF_1`) still wired |
+| Old page no longer falsely highlights "Contact Me" | PASS — nav on `/contact-me-server-form` renders the link inactive (no `aria-current`) |
+| Blogs prefix highlighting unaffected | PASS — on `/blogs/[slug]` the Blogs link still shows `aria-current="page"` |
+| Both forms save to the same JSON file | PASS — contact API suite re-run baseline-agnostic: 18/18 PASS (valid 201 appends, blank/invalid email 400s, alias 201, malformed JSON 400, GET 405, all prior records preserved) |
+| Landing hero CTA now `/contact-me` | PASS |
+| `npm run lint` | PASS |
+| `npm run build` | PASS — compiled successfully |
+| Git | Nothing committed or pushed (per instruction) |

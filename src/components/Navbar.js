@@ -5,23 +5,27 @@ import { usePathname } from "next/navigation";
 import { useState } from "react";
 
 const navigationLinks = [
-  { href: "/", label: "Home" },
+  { href: "/", label: "Home", exact: true },
   { href: "/about-me", label: "About Me" },
   { href: "/projects", label: "Projects" },
-  { href: "/contact-me-server-form", label: "Contact Me" },
+  { href: "/blogs", label: "Blogs" },
+  { href: "/contact-me", label: "Contact Me", exact: true },
 ];
 
 export default function Navbar() {
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
 
-  function isActive(href) {
-    return href === "/" ? pathname === "/" : pathname.startsWith(href);
+  function isActive(link) {
+    if (link.exact) {
+      return pathname === link.href;
+    }
+    return pathname.startsWith(link.href);
   }
 
-  function linkClasses(href) {
+  function linkClasses(link) {
     const base = "rounded-md px-3 py-2 text-sm font-medium transition-colors";
-    return isActive(href)
+    return isActive(link)
       ? `${base} text-blue-700`
       : `${base} text-slate-600 hover:text-slate-900`;
   }
@@ -44,8 +48,8 @@ export default function Navbar() {
             <Link
               key={link.href}
               href={link.href}
-              className={linkClasses(link.href)}
-              aria-current={isActive(link.href) ? "page" : undefined}
+              className={linkClasses(link)}
+              aria-current={isActive(link) ? "page" : undefined}
             >
               {link.label}
             </Link>
@@ -106,8 +110,8 @@ export default function Navbar() {
               <Link
                 key={link.href}
                 href={link.href}
-                className={linkClasses(link.href)}
-                aria-current={isActive(link.href) ? "page" : undefined}
+                className={linkClasses(link)}
+                aria-current={isActive(link) ? "page" : undefined}
                 onClick={() => setMenuOpen(false)}
               >
                 {link.label}

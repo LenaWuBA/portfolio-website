@@ -20,17 +20,28 @@ Prerequisites: [Node.js](https://nodejs.org) (v20+ recommended) and npm.
 
 ```bash
 npm install
+npm run seed
 npm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) in your browser.
+
+### Sample blog data (optional)
+
+`npm run seed` creates two sample blog posts so `/blogs` and `/blogs/[slug]`
+can be demonstrated immediately on a fresh clone. Seeding is skipped if any
+blog posts already exist, and new posts can always be created through
+`/admin/blogs`. The sample content lives in `scripts/seed-blog-posts.mjs`
+(safe to commit); the generated `data/blog-posts.json` is gitignored runtime
+data and is never committed.
 
 Other scripts:
 
 ```bash
 npm run lint    # run ESLint
 npm run build   # production build
-npm start       # serve the production build
+npm run start   # serve the production build
+npm run seed    # create the two sample blog posts (skipped if posts exist)
 ```
 
 ## Routes
