@@ -64,6 +64,11 @@ export async function readContactSubmissions() {
   return parsed;
 }
 
+export async function getContactSubmissionById(id) {
+  const submissions = await readContactSubmissions();
+  return submissions.find((submission) => submission.id === id) ?? null;
+}
+
 export async function saveContactSubmission(submission) {
   await fs.mkdir(DATA_DIRECTORY, { recursive: true });
   const submissions = await readContactSubmissions();
@@ -73,4 +78,33 @@ export async function saveContactSubmission(submission) {
     submittedAt: new Date().toISOString(),
   });
   await fs.writeFile(DATA_FILE, JSON.stringify(submissions, null, 2), "utf8");
+}
+
+export async function updateContactSubmission(id, values) {
+  await fs.mkdir(DATA_DIRECTORY, { recursive: true });
+  const submissions = await readContactSubmissions();
+  const index = submissions.findIndex((submission) => submission.id === id);
+  if (index === -1) {
+    return null;
+  }
+  const updated = {
+    ...submissions[index],
+    ...values,
+    id,
+    submittedAt: submissions[index].submittedAt,
+  };
+  submissions[index] = updated;
+  await fs.writeFile(DATA_FILE, JSON.stringify(submissions, null, 2), "utf8");
+  return updated;
+}
+
+export async function deleteContactSubmission(id) {
+  await fs.mkdir(DATA_DIRECTORY, { recursive: true });
+  const submissions = await readContactSubmissions();
+  const next = submissions.filter((submission) => submission.id !== id);
+  if (next.length === submissions.length) {
+    return false;
+  }
+  await fs.writeFile(DATA_FILE, JSON.stringify(next, null, 2), "utf8");
+  return true;
 }

@@ -9,6 +9,8 @@ const navigationLinks = [
   { href: "/about-me", label: "About Me" },
   { href: "/projects", label: "Projects" },
   { href: "/blogs", label: "Blogs" },
+  { href: "/learning-goals", label: "Learning Goals" },
+  { href: "/networking", label: "Networking" },
   { href: "/contact-me", label: "Contact Me", exact: true },
 ];
 

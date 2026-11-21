@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "seed": "node scripts/seed-blog-posts.mjs"
+    "seed": "node scripts/seed-blog-posts.mjs",
+    "seed:projects": "node scripts/seed-projects.mjs"
   },
   "dependencies": {
     "next": "16.4.5",

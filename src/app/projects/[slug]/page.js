@@ -1,14 +1,20 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { projects, getProjectBySlug } from "@/data/projects";
+import { readProjects, getProjectBySlug } from "@/lib/projects";
 
-export function generateStaticParams() {
+export const instant = false;
+
+export async function generateStaticParams() {
+  const projects = await readProjects();
+  if (projects.length === 0) {
+    return [{ slug: "__project_placeholder__" }];
+  }
   return projects.map((project) => ({ slug: project.slug }));
 }
 
 export async function generateMetadata({ params }) {
   const { slug } = await params;
-  const project = getProjectBySlug(slug);
+  const project = await getProjectBySlug(slug);
 
   if (!project) {
     return { title: "Project Not Found" };
@@ -19,7 +25,7 @@ export async function generateMetadata({ params }) {
 
 export default async function ProjectDetailPage({ params }) {
   const { slug } = await params;
-  const project = getProjectBySlug(slug);
+  const project = await getProjectBySlug(slug);
 
   if (!project) {
     notFound();
